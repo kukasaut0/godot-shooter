@@ -23,6 +23,9 @@ var best_score := 0
 var round_time_left := ROUND_DURATION
 var round_active := true
 
+var _stats_timer := 0.0
+var _last_timer_sec := -1
+
 var _kill_streak := 0
 var _last_kill_time := -999.0
 const STREAK_WINDOW := 3.5
@@ -53,6 +56,10 @@ func _ready() -> void:
 	weapon.shot_fired.connect(_on_shot_fired)
 	weapon.target_hit.connect(_on_target_hit)
 	weapon.target_killed_with_distance.connect(_on_target_killed)
+	weapon.headshot_confirmed.connect(_on_headshot)
+
+func _on_headshot() -> void:
+	hud.show_headshot_label()
 
 func _on_shot_fired() -> void:
 	shots_fired += 1
@@ -95,6 +102,7 @@ func _start_new_round() -> void:
 	_kill_streak = 0
 	round_time_left = ROUND_DURATION
 	round_active = true
+	_last_timer_sec = -1
 	hud.hide_round_over()
 	hud.update_kills(kills)
 	hud.update_score(score, best_score)
@@ -134,11 +142,17 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	session_time += delta
-	hud.update_stats(session_time, shots_fired, shots_hit)
+	_stats_timer += delta
+	if _stats_timer >= 1.0:
+		_stats_timer = 0.0
+		hud.update_stats(session_time, shots_fired, shots_hit)
 
 	if round_active:
 		round_time_left -= delta
-		hud.update_timer(round_time_left)
+		var shown_sec := ceili(max(0.0, round_time_left))
+		if shown_sec != _last_timer_sec:
+			_last_timer_sec = shown_sec
+			hud.update_timer(round_time_left)
 		if round_time_left <= 0.0:
 			round_time_left = 0.0
 			_end_round()
@@ -186,6 +200,7 @@ func take_damage(amount: int) -> void:
 	health = max(0, health - amount)
 	hud.update_health(health)
 	hud.flash_damage()
+	Sound.play(Sound.player_hurt)
 	if health <= 0:
 		_die()
 

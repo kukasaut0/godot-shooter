@@ -10,6 +10,8 @@ var label_score: Label
 var label_timer: Label
 var crosshair: Label
 
+var _label_headshot: Label
+var _headshot_timer := 0.0
 var _hit_marker_timer := 0.0
 var _streak_timer := 0.0
 var _damage_flash_alpha := 0.0
@@ -109,6 +111,19 @@ func _ready() -> void:
 	label_streak.visible = false
 	add_child(label_streak)
 
+	# Headshot announcement — center screen, below streak
+	_label_headshot = Label.new()
+	_label_headshot.text = "HEADSHOT!"
+	_label_headshot.add_theme_font_size_override("font_size", 52)
+	_label_headshot.add_theme_color_override("font_color", Color.WHITE)
+	_label_headshot.set_anchors_preset(Control.PRESET_CENTER)
+	_label_headshot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_label_headshot.offset_left = -250
+	_label_headshot.offset_top = -20
+	_label_headshot.custom_minimum_size = Vector2(500, 60)
+	_label_headshot.visible = false
+	add_child(_label_headshot)
+
 	var hint := Label.new()
 	hint.text = "WASD: Move  Shift: Sprint  Space: Jump  1/2/3: Weapon  RMB: Cycle  LMB: Shoot  R: Reload  Esc: Unlock mouse"
 	hint.add_theme_font_size_override("font_size", 14)
@@ -119,6 +134,12 @@ func _ready() -> void:
 	add_child(hint)
 
 func _process(delta: float) -> void:
+	# Headshot label fade
+	if _headshot_timer > 0.0:
+		_headshot_timer -= delta
+		if _headshot_timer <= 0.0:
+			_label_headshot.visible = false
+
 	# Hit marker fade
 	if _hit_marker_timer > 0.0:
 		_hit_marker_timer -= delta
@@ -132,12 +153,16 @@ func _process(delta: float) -> void:
 			label_streak.visible = false
 
 	# Damage flash decay
-	_damage_flash_alpha = max(0.0, _damage_flash_alpha - delta * 2.5)
+	if _damage_flash_alpha > 0.0:
+		_damage_flash_alpha = max(0.0, _damage_flash_alpha - delta * 2.5)
 
 	# Vignette: pulse when health is low, flash on damage
-	var pulse := 1.0 + sin(Time.get_ticks_msec() * 0.004) * 0.18
-	var total: float = max(_health_vignette_alpha * pulse, _damage_flash_alpha)
-	_vignette.color.a = total
+	if _health_vignette_alpha > 0.0 or _damage_flash_alpha > 0.0:
+		var pulse := 1.0 + sin(Time.get_ticks_msec() * 0.004) * 0.18
+		var total: float = max(_health_vignette_alpha * pulse, _damage_flash_alpha)
+		_vignette.color.a = total
+	elif _vignette.color.a != 0.0:
+		_vignette.color.a = 0.0
 
 func update_health(health: int) -> void:
 	label_health.text = "HP: %d" % health
@@ -183,6 +208,10 @@ func update_timer(t: float) -> void:
 		label_timer.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
 	else:
 		label_timer.add_theme_color_override("font_color", Color.WHITE)
+
+func show_headshot_label() -> void:
+	_label_headshot.visible = true
+	_headshot_timer = 1.0
 
 func flash_hit_marker() -> void:
 	crosshair.add_theme_color_override("font_color", Color(1.0, 0.15, 0.15))

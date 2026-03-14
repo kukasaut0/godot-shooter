@@ -3,6 +3,7 @@ extends Node
 signal shot_fired
 signal target_hit
 signal target_killed_with_distance(dist: float)
+signal headshot_confirmed
 
 enum Weapon { PISTOL, MACHINE_GUN, SHOTGUN }
 
@@ -280,6 +281,11 @@ func shoot() -> void:
 	emit_signal("shot_fired")
 	_notify_hud_ammo()
 
+	match current_weapon:
+		Weapon.PISTOL:     Sound.play(Sound.gunshot_pistol)
+		Weapon.MACHINE_GUN: Sound.play(Sound.gunshot_mg)
+		Weapon.SHOTGUN:    Sound.play(Sound.gunshot_shotgun)
+
 	var kick: float = recoil_kick[current_weapon]
 	_camera.rotation.x -= kick
 	_camera.rotation.x = clamp(_camera.rotation.x, -PI / 2.0, PI / 2.0)
@@ -300,9 +306,15 @@ func _shoot_single() -> void:
 		hit_point = _ray.get_collision_point()
 		var collider: Object = _ray.get_collider()
 		if collider.has_method("take_damage"):
-			var killed: bool = collider.take_damage(damage[current_weapon])
+			var is_headshot := false
+			if "mesh_height" in collider:
+				is_headshot = hit_point.y > collider.global_position.y + collider.mesh_height * 0.3
+			var dmg: int = damage[current_weapon] * (2 if is_headshot else 1)
+			var killed: bool = collider.take_damage(dmg, is_headshot)
 			hit_target = true
 			emit_signal("target_hit")
+			if is_headshot:
+				emit_signal("headshot_confirmed")
 			if killed:
 				emit_signal("target_killed_with_distance", hit_point.distance_to(_camera.global_position))
 	else:
@@ -314,6 +326,7 @@ func _shoot_shotgun() -> void:
 	const SPREAD := 0.07
 	var any_hit := false
 	var hit_any_target := false
+	var any_headshot := false
 	var last_hit_point: Vector3 = _camera.global_position - _camera.global_transform.basis.z * 50.0
 	var dead_this_shot: Array = []
 
@@ -334,13 +347,21 @@ func _shoot_shotgun() -> void:
 		if collider in dead_this_shot:
 			continue
 		hit_any_target = true
-		var killed: bool = collider.take_damage(damage[current_weapon])
+		var is_headshot := false
+		if "mesh_height" in collider:
+			is_headshot = result.position.y > collider.global_position.y + collider.mesh_height * 0.3
+		if is_headshot:
+			any_headshot = true
+		var dmg: int = damage[current_weapon] * (2 if is_headshot else 1)
+		var killed: bool = collider.take_damage(dmg, is_headshot)
 		if killed:
 			dead_this_shot.append(collider)
 			emit_signal("target_killed_with_distance", result.position.distance_to(_camera.global_position))
 
 	if hit_any_target:
 		emit_signal("target_hit")
+	if any_headshot:
+		emit_signal("headshot_confirmed")
 	_fire_effects(last_hit_point, any_hit, hit_any_target)
 
 func _fire_effects(hit_point: Vector3, did_hit: bool, hit_target: bool) -> void:
