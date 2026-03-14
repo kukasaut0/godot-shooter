@@ -46,4 +46,15 @@ jobs:
       - name: Push to itch.io
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
-        run: ./linux-amd64/butler push build/web "${{ env.ITCH_TARGET }}"
+        run: |
+          ./linux-amd64/butler push build/web "${{ env.ITCH_TARGET }}" 2>&1 | tee butler_output.txt
+          echo "ITCH_BUILD=$(grep -oP '(?<=build #)\d+' butler_output.txt)" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="build-${{ github.sha }}"
+          gh release create "$TAG" \
+            --title "Build ${GITHUB_SHA::7}" \
+            --notes "Play: https://kukasaut0.itch.io/godot-shooter (itch.io build #${{ env.ITCH_BUILD }})"

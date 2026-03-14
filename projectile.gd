@@ -1,6 +1,6 @@
 extends Area3D
 
-const SPEED := 16.8
+const SPEED := 25.2
 const MAX_LIFETIME := 4.0
 
 var direction := Vector3.FORWARD
