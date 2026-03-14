@@ -2,16 +2,16 @@ extends Node
 
 signal shot_fired
 signal target_hit
-signal target_killed
+signal target_killed_with_distance(dist: float)
 
 enum Weapon { PISTOL, MACHINE_GUN, SHOTGUN }
 
-var current_weapon := Weapon.PISTOL
+var current_weapon := Weapon.MACHINE_GUN
 
 var ammo         := { Weapon.PISTOL: 15,  Weapon.MACHINE_GUN: 60,  Weapon.SHOTGUN: 6  }
 var max_ammo     := { Weapon.PISTOL: 15,  Weapon.MACHINE_GUN: 60,  Weapon.SHOTGUN: 6  }
 var reserve_ammo := { Weapon.PISTOL: 60,  Weapon.MACHINE_GUN: 240, Weapon.SHOTGUN: 30 }
-var damage       := { Weapon.PISTOL: 30,  Weapon.MACHINE_GUN: 15,  Weapon.SHOTGUN: 14 }  # shotgun: per pellet
+var damage       := { Weapon.PISTOL: 30,  Weapon.MACHINE_GUN: 15,  Weapon.SHOTGUN: 20 }  # shotgun: per pellet
 var weapon_names := { Weapon.PISTOL: "PISTOL", Weapon.MACHINE_GUN: "MACHINE GUN", Weapon.SHOTGUN: "SHOTGUN" }
 var reload_time  := { Weapon.PISTOL: 1.2, Weapon.MACHINE_GUN: 2.0, Weapon.SHOTGUN: 1.8 }
 var recoil_kick  := { Weapon.PISTOL: 0.05, Weapon.MACHINE_GUN: 0.012, Weapon.SHOTGUN: 0.09 }
@@ -304,7 +304,7 @@ func _shoot_single() -> void:
 			hit_target = true
 			emit_signal("target_hit")
 			if killed:
-				emit_signal("target_killed")
+				emit_signal("target_killed_with_distance", hit_point.distance_to(_camera.global_position))
 	else:
 		hit_point = _camera.global_position + _camera.global_transform.basis * Vector3(0, 0, -50)
 	_fire_effects(hit_point, did_hit, hit_target)
@@ -337,7 +337,7 @@ func _shoot_shotgun() -> void:
 		var killed: bool = collider.take_damage(damage[current_weapon])
 		if killed:
 			dead_this_shot.append(collider)
-			emit_signal("target_killed")
+			emit_signal("target_killed_with_distance", result.position.distance_to(_camera.global_position))
 
 	if hit_any_target:
 		emit_signal("target_hit")

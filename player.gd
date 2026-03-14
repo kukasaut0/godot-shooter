@@ -6,15 +6,22 @@ const JUMP_VELOCITY := 5.0
 const MOUSE_SENSITIVITY := 0.002
 const BASE_FOV := 75.0
 const SPRINT_FOV := 85.0
+const ROUND_DURATION := 90.0
 
 @onready var camera: Camera3D = $Camera3D
 @onready var ray: RayCast3D = $Camera3D/RayCast3D
 
 var health := 100
+var is_dead := false
 var kills := 0
 var shots_fired := 0
 var shots_hit := 0
 var session_time := 0.0
+
+var score := 0
+var best_score := 0
+var round_time_left := ROUND_DURATION
+var round_active := true
 
 var _kill_streak := 0
 var _last_kill_time := -999.0
@@ -22,6 +29,7 @@ const STREAK_WINDOW := 3.5
 
 var wants_jump := false
 var is_sprinting := false
+var is_moving := false
 
 var hud: Node          # hud.gd (CanvasLayer)
 var weapon: Node       # weapon_system.gd
@@ -35,6 +43,8 @@ func _ready() -> void:
 	hud.update_health(health)
 	hud.update_kills(kills)
 	hud.update_stats(0.0, 0, 0)
+	hud.update_score(0, 0)
+	hud.update_timer(ROUND_DURATION)
 
 	weapon = load("res://weapon_system.gd").new()
 	weapon.name = "WeaponSystem"
@@ -42,7 +52,7 @@ func _ready() -> void:
 	weapon.setup(camera, ray, hud)
 	weapon.shot_fired.connect(_on_shot_fired)
 	weapon.target_hit.connect(_on_target_hit)
-	weapon.target_killed.connect(_on_target_killed)
+	weapon.target_killed_with_distance.connect(_on_target_killed)
 
 func _on_shot_fired() -> void:
 	shots_fired += 1
@@ -50,7 +60,7 @@ func _on_shot_fired() -> void:
 func _on_target_hit() -> void:
 	shots_hit += 1
 
-func _on_target_killed() -> void:
+func _on_target_killed(dist: float) -> void:
 	kills += 1
 	hud.update_kills(kills)
 	if session_time - _last_kill_time <= STREAK_WINDOW:
@@ -61,34 +71,80 @@ func _on_target_killed() -> void:
 	if _kill_streak >= 2:
 		hud.show_streak(_kill_streak)
 
+	# Score: 100 base + distance bonus, multiplied by streak
+	var pts := int((100.0 + dist * 4.0) * _kill_streak)
+	score += pts
+	hud.update_score(score, best_score)
+
+func _end_round() -> void:
+	round_active = false
+	var is_new_best := score > best_score
+	best_score = max(best_score, score)
+	var acc := 0
+	if shots_fired > 0:
+		acc = int(float(shots_hit) / float(shots_fired) * 100.0)
+	hud.show_round_over(score, best_score, kills, acc, is_new_best)
+	get_tree().create_timer(6.0).timeout.connect(_start_new_round, CONNECT_ONE_SHOT)
+
+func _start_new_round() -> void:
+	score = 0
+	kills = 0
+	shots_fired = 0
+	shots_hit = 0
+	session_time = 0.0
+	_kill_streak = 0
+	round_time_left = ROUND_DURATION
+	round_active = true
+	hud.hide_round_over()
+	hud.update_kills(kills)
+	hud.update_score(score, best_score)
+	hud.update_timer(round_time_left)
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
-		rotate_y(-event.relative.x * MOUSE_SENSITIVITY)
-		camera.rotate_x(-event.relative.y * MOUSE_SENSITIVITY)
-		camera.rotation.x = clamp(camera.rotation.x, -PI / 2.0, PI / 2.0)
+		if not is_dead:
+			rotate_y(-event.relative.x * MOUSE_SENSITIVITY)
+			camera.rotate_x(-event.relative.y * MOUSE_SENSITIVITY)
+			camera.rotation.x = clamp(camera.rotation.x, -PI / 2.0, PI / 2.0)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		if Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE:
 			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-		elif weapon.current_weapon == weapon.Weapon.PISTOL or weapon.current_weapon == weapon.Weapon.SHOTGUN:
+		elif not is_dead and (weapon.current_weapon == weapon.Weapon.PISTOL or weapon.current_weapon == weapon.Weapon.SHOTGUN):
 			weapon.shoot()
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		if not is_dead and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+			weapon.switch_weapon()
 	elif event is InputEventKey and event.keycode == KEY_SPACE and event.pressed and not event.echo:
-		wants_jump = true
+		if not is_dead:
+			wants_jump = true
 	elif event is InputEventKey and event.keycode == KEY_ESCAPE and event.pressed:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	elif event is InputEventKey and event.keycode == KEY_ENTER and event.pressed and not event.echo:
-		weapon.switch_weapon()
 	elif event is InputEventKey and event.keycode == KEY_1 and event.pressed and not event.echo:
-		weapon.select_weapon(weapon.Weapon.PISTOL)
+		if not is_dead:
+			weapon.select_weapon(weapon.Weapon.PISTOL)
 	elif event is InputEventKey and event.keycode == KEY_2 and event.pressed and not event.echo:
-		weapon.select_weapon(weapon.Weapon.MACHINE_GUN)
+		if not is_dead:
+			weapon.select_weapon(weapon.Weapon.MACHINE_GUN)
 	elif event is InputEventKey and event.keycode == KEY_3 and event.pressed and not event.echo:
-		weapon.select_weapon(weapon.Weapon.SHOTGUN)
+		if not is_dead:
+			weapon.select_weapon(weapon.Weapon.SHOTGUN)
 	elif event is InputEventKey and event.keycode == KEY_R and event.pressed and not event.echo:
-		weapon.start_reload()
+		if not is_dead:
+			weapon.start_reload()
 
 func _physics_process(delta: float) -> void:
 	session_time += delta
 	hud.update_stats(session_time, shots_fired, shots_hit)
+
+	if round_active:
+		round_time_left -= delta
+		hud.update_timer(round_time_left)
+		if round_time_left <= 0.0:
+			round_time_left = 0.0
+			_end_round()
+
+	if is_dead:
+		return
 
 	if not is_on_floor():
 		velocity += get_gravity() * delta
@@ -105,6 +161,7 @@ func _physics_process(delta: float) -> void:
 
 	var horiz_speed := Vector2(velocity.x, velocity.z).length()
 	is_sprinting = Input.is_key_pressed(KEY_SHIFT) and direction != Vector3.ZERO and is_on_floor()
+	is_moving = direction != Vector3.ZERO
 	var effective_speed := SPRINT_SPEED if is_sprinting else SPEED
 
 	if direction:
@@ -124,8 +181,24 @@ func _physics_process(delta: float) -> void:
 	weapon.process_bob(delta, horiz_speed, is_sprinting)
 
 func take_damage(amount: int) -> void:
+	if is_dead:
+		return
 	health = max(0, health - amount)
 	hud.update_health(health)
 	hud.flash_damage()
 	if health <= 0:
-		get_tree().reload_current_scene()
+		_die()
+
+func _die() -> void:
+	is_dead = true
+	velocity = Vector3.ZERO
+	hud.show_death_screen()
+	get_tree().create_timer(3.0).timeout.connect(_respawn, CONNECT_ONE_SHOT)
+
+func _respawn() -> void:
+	health = 100
+	is_dead = false
+	global_position = Vector3(0, 1, 30)
+	velocity = Vector3.ZERO
+	hud.hide_death_screen()
+	hud.update_health(health)

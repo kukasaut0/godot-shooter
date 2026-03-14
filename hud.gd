@@ -6,6 +6,8 @@ var label_weapon: Label
 var label_kills: Label
 var label_stats: Label
 var label_streak: Label
+var label_score: Label
+var label_timer: Label
 var crosshair: Label
 
 var _hit_marker_timer := 0.0
@@ -13,6 +15,8 @@ var _streak_timer := 0.0
 var _damage_flash_alpha := 0.0
 var _health_vignette_alpha := 0.0
 var _vignette: ColorRect
+var _round_over_panel: Control
+var _death_panel: Control
 
 func _ready() -> void:
 	# Vignette — added first so it renders behind all labels
@@ -71,6 +75,28 @@ func _ready() -> void:
 	label_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(label_stats)
 
+	# Score — top center
+	label_score = Label.new()
+	label_score.add_theme_font_size_override("font_size", 20)
+	label_score.add_theme_color_override("font_color", Color(1.0, 0.9, 0.2))
+	label_score.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	label_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label_score.offset_left = -200
+	label_score.offset_right = 200
+	label_score.offset_top = 10
+	add_child(label_score)
+
+	# Round timer — below score
+	label_timer = Label.new()
+	label_timer.add_theme_font_size_override("font_size", 22)
+	label_timer.add_theme_color_override("font_color", Color.WHITE)
+	label_timer.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	label_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label_timer.offset_left = -60
+	label_timer.offset_right = 60
+	label_timer.offset_top = 36
+	add_child(label_timer)
+
 	# Kill streak announcement — center screen, large
 	label_streak = Label.new()
 	label_streak.add_theme_font_size_override("font_size", 42)
@@ -84,7 +110,7 @@ func _ready() -> void:
 	add_child(label_streak)
 
 	var hint := Label.new()
-	hint.text = "WASD: Move  Shift: Sprint  Space: Jump  1/2/3: Weapon  LMB: Shoot  R: Reload  Esc: Unlock mouse"
+	hint.text = "WASD: Move  Shift: Sprint  Space: Jump  1/2/3: Weapon  RMB: Cycle  LMB: Shoot  R: Reload  Esc: Unlock mouse"
 	hint.add_theme_font_size_override("font_size", 14)
 	hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
 	hint.set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -126,7 +152,12 @@ func update_ammo(weapon_name: String, current: int, max_val: int, reserve: int, 
 		label_ammo.add_theme_color_override("font_color", Color(1.0, 0.7, 0.2))
 	else:
 		label_ammo.text = "AMMO: %d / %d  +%d" % [current, max_val, reserve]
-		label_ammo.add_theme_color_override("font_color", Color(0.9, 0.9, 1.0))
+		# Low ammo warning: ≤25% of mag
+		var low := max_val > 0 and current <= max_val / 4
+		if low:
+			label_ammo.add_theme_color_override("font_color", Color(1.0, 0.25, 0.25))
+		else:
+			label_ammo.add_theme_color_override("font_color", Color(0.9, 0.9, 1.0))
 
 func update_kills(kills: int) -> void:
 	label_kills.text = "KILLS: %d" % kills
@@ -138,6 +169,20 @@ func update_stats(time: float, shots_fired: int, shots_hit: int) -> void:
 	var mins := int(time) / 60
 	var secs := int(time) % 60
 	label_stats.text = "TIME %02d:%02d  ACC %d%%" % [mins, secs, acc]
+
+func update_score(score: int, best: int) -> void:
+	if best > 0:
+		label_score.text = "SCORE: %d  |  BEST: %d" % [score, best]
+	else:
+		label_score.text = "SCORE: %d" % score
+
+func update_timer(t: float) -> void:
+	var secs := ceili(max(0.0, t))
+	label_timer.text = "0:%02d" % secs
+	if secs <= 10:
+		label_timer.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
+	else:
+		label_timer.add_theme_color_override("font_color", Color.WHITE)
 
 func flash_hit_marker() -> void:
 	crosshair.add_theme_color_override("font_color", Color(1.0, 0.15, 0.15))
@@ -156,3 +201,114 @@ func show_streak(count: int) -> void:
 	label_streak.text = msg
 	label_streak.visible = true
 	_streak_timer = 2.2
+
+func show_round_over(score: int, best: int, kills: int, acc: int, is_new_best: bool) -> void:
+	if _round_over_panel:
+		_round_over_panel.queue_free()
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.offset_left = -220
+	panel.offset_right = 220
+	panel.offset_top = -145
+	panel.offset_bottom = 145
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "ROUND OVER"
+	title.add_theme_font_size_override("font_size", 40)
+	title.add_theme_color_override("font_color", Color(1.0, 0.75, 0.1))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 8)
+	vbox.add_child(spacer)
+
+	var score_lbl := Label.new()
+	score_lbl.text = "SCORE:  %d" % score
+	score_lbl.add_theme_font_size_override("font_size", 28)
+	score_lbl.add_theme_color_override("font_color", Color.WHITE)
+	score_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(score_lbl)
+
+	var best_lbl := Label.new()
+	if is_new_best and score > 0:
+		best_lbl.text = "NEW BEST!  %d" % best
+		best_lbl.add_theme_color_override("font_color", Color(0.3, 1.0, 0.4))
+	else:
+		best_lbl.text = "BEST:  %d" % best
+		best_lbl.add_theme_color_override("font_color", Color(0.65, 0.65, 0.65))
+	best_lbl.add_theme_font_size_override("font_size", 20)
+	best_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(best_lbl)
+
+	var spacer2 := Control.new()
+	spacer2.custom_minimum_size = Vector2(0, 6)
+	vbox.add_child(spacer2)
+
+	var stats_lbl := Label.new()
+	stats_lbl.text = "KILLS: %d    ACCURACY: %d%%" % [kills, acc]
+	stats_lbl.add_theme_font_size_override("font_size", 18)
+	stats_lbl.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(stats_lbl)
+
+	var spacer3 := Control.new()
+	spacer3.custom_minimum_size = Vector2(0, 10)
+	vbox.add_child(spacer3)
+
+	var next_lbl := Label.new()
+	next_lbl.text = "Next round starting..."
+	next_lbl.add_theme_font_size_override("font_size", 15)
+	next_lbl.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
+	next_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(next_lbl)
+
+	_round_over_panel = panel
+	add_child(panel)
+
+func hide_round_over() -> void:
+	if _round_over_panel:
+		_round_over_panel.queue_free()
+		_round_over_panel = null
+
+func show_death_screen() -> void:
+	if _death_panel:
+		_death_panel.queue_free()
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.offset_left = -180
+	panel.offset_right = 180
+	panel.offset_top = -80
+	panel.offset_bottom = 80
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "YOU DIED"
+	title.add_theme_font_size_override("font_size", 52)
+	title.add_theme_color_override("font_color", Color(1.0, 0.1, 0.1))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	var sub := Label.new()
+	sub.text = "Respawning in 3 seconds..."
+	sub.add_theme_font_size_override("font_size", 16)
+	sub.add_theme_color_override("font_color", Color(0.65, 0.65, 0.65))
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(sub)
+
+	_death_panel = panel
+	add_child(panel)
+
+func hide_death_screen() -> void:
+	if _death_panel:
+		_death_panel.queue_free()
+		_death_panel = null
