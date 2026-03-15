@@ -187,13 +187,15 @@ func _find_cover_position() -> bool:
 				continue  # no floor under this sample, skip
 			candidate.y = floor_hit.position.y
 
-			# Test LOS: candidate head → player eye
-			var head := candidate + Vector3(0.0, 0.9, 0.0)
-			var los   := PhysicsRayQueryParameters3D.create(head, player_eye)
-			los.exclude = [self, _player]
-			var hit := space.intersect_ray(los)
+			# Test LOS from both mid and top of enemy body → player eye
+			var head     := candidate + Vector3(0.0, 0.9, 0.0)
+			var top      := candidate + Vector3(0.0, 1.6, 0.0)
+			var los_head := PhysicsRayQueryParameters3D.create(head, player_eye)
+			los_head.exclude = [self, _player]
+			var los_top  := PhysicsRayQueryParameters3D.create(top, player_eye)
+			los_top.exclude  = [self, _player]
 
-			if hit.is_empty():
+			if space.intersect_ray(los_head).is_empty() or space.intersect_ray(los_top).is_empty():
 				continue  # player can see that spot — not cover
 
 			# Score: reward distance from player, penalise distance from self
@@ -239,13 +241,20 @@ func _flee_from_player(_delta: float) -> void:
 
 func _is_visible_to_player() -> bool:
 	var head := global_position + Vector3(0.0, 0.9, 0.0)
-	if not _camera.is_position_in_frustum(head):
+	var top  := global_position + Vector3(0.0, 1.6, 0.0)
+	if not _camera.is_position_in_frustum(head) and not _camera.is_position_in_frustum(top):
 		return false
-	var space := get_world_3d().direct_space_state
-	var query := PhysicsRayQueryParameters3D.create(head, _camera.global_position)
-	query.exclude = [self]
-	var result := space.intersect_ray(query)
-	return result.is_empty() or result.collider == _player
+	var space      := get_world_3d().direct_space_state
+	var cam_pos    := _camera.global_position
+	var q_head     := PhysicsRayQueryParameters3D.create(head, cam_pos)
+	q_head.exclude = [self]
+	var r_head     := space.intersect_ray(q_head)
+	if r_head.is_empty() or r_head.collider == _player:
+		return true
+	var q_top     := PhysicsRayQueryParameters3D.create(top, cam_pos)
+	q_top.exclude = [self]
+	var r_top     := space.intersect_ray(q_top)
+	return r_top.is_empty() or r_top.collider == _player
 
 
 # ── HUD label ──────────────────────────────────────────────────────────────────
