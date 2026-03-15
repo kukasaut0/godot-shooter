@@ -15,6 +15,11 @@ const COVER_MAX_RADIUS    := 12.0
 # How much we penalise candidates that are still close to the player
 const COVER_AWAY_WEIGHT   := 0.4
 
+const SHOOT_INTERVAL  := 0.55   # seconds between shots
+const RELOAD_TIME     := 2.2    # seconds to reload
+const MAG_SIZE        := 5      # shots per magazine
+const SHOOT_RANGE     := 35.0   # max shooting distance
+
 var health     := 100
 var mesh_height := 1.7   # used by weapon_system for headshot detection
 
@@ -24,6 +29,11 @@ var _vis_timer      := 0.0
 var _cover_timer    := 0.0
 var _cover_target   := Vector3.ZERO
 var _cover_found    := false
+
+var _ammo           := MAG_SIZE
+var _shoot_timer    := 0.0
+var _reload_timer   := 0.0
+var _reloading      := false
 
 var _player : CharacterBody3D
 var _camera : Camera3D
@@ -107,6 +117,7 @@ func _physics_process(delta: float) -> void:
 			if do_vis and _is_visible_to_player():
 				_enter_spotted()
 
+	_update_shooting(delta)
 	move_and_slide()
 
 	if _flash_timer > 0.0:
@@ -259,11 +270,118 @@ func _update_label() -> void:
 			_label.font_size = 28
 
 
+# ── Shooting ───────────────────────────────────────────────────────────────────
+
+func _update_shooting(delta: float) -> void:
+	# Only shoot while exposed (not hiding or in cover)
+	var can_shoot := state == State.SPOTTED or state == State.SEEKING_COVER
+	if not can_shoot:
+		return
+
+	if _reloading:
+		_reload_timer -= delta
+		if _reload_timer <= 0.0:
+			_reloading = false
+			_ammo = MAG_SIZE
+		return
+
+	if _shoot_timer > 0.0:
+		_shoot_timer -= delta
+		return
+
+	# Range check
+	if global_position.distance_to(_player.global_position) > SHOOT_RANGE:
+		return
+
+	_fire_projectile()
+	_ammo -= 1
+	_shoot_timer = SHOOT_INTERVAL
+
+	if _ammo <= 0:
+		_reloading = true
+		_reload_timer = RELOAD_TIME
+
+
+func _fire_projectile() -> void:
+	var Projectile = preload("res://projectile.gd")
+	var proj : Area3D = Projectile.new()
+
+	var muzzle := global_position + Vector3(0.0, 0.9, 0.0)
+	var target  := _player.global_position + Vector3(0.0, 0.7, 0.0)  # aim at chest
+	proj.direction = (target - muzzle).normalized()
+	proj.global_position = muzzle
+
+	get_tree().current_scene.add_child(proj)
+
+
+# ── Death debris ───────────────────────────────────────────────────────────────
+
+func _spawn_debris() -> void:
+	const PIECE_COUNT := 8
+	const LIFETIME    := 2.2
+	const GRAVITY     := 14.0
+	const SIZES : Array[float] = [0.18, 0.22, 0.28, 0.14]
+
+	var scene := get_tree().current_scene
+	var rng   := RandomNumberGenerator.new()
+	rng.randomize()
+
+	for i in range(PIECE_COUNT):
+		var piece     := Node3D.new()
+		var mesh_inst := MeshInstance3D.new()
+		var box       := BoxMesh.new()
+		var s         : float = SIZES[i % SIZES.size()] * rng.randf_range(0.7, 1.4)
+		box.size      = Vector3(s, s, s)
+		mesh_inst.mesh = box
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(0.75, 0.18, 0.18)
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mesh_inst.material_override = mat
+		piece.add_child(mesh_inst)
+
+		var origin := global_position + Vector3(
+			rng.randf_range(-0.3, 0.3),
+			rng.randf_range(0.5, 1.1),
+			rng.randf_range(-0.3, 0.3)
+		)
+		piece.global_position = origin
+		scene.add_child(piece)
+
+		# Simulate arc with a tween — no physics bodies needed
+		var vel := Vector3(
+			rng.randf_range(-1.0, 1.0),
+			rng.randf_range(0.5, 1.0),
+			rng.randf_range(-1.0, 1.0)
+		).normalized() * rng.randf_range(3.0, 7.0)
+		var spin_axis := Vector3(rng.randf_range(-1,1), rng.randf_range(-1,1), rng.randf_range(-1,1)).normalized()
+		var spin_spd  := rng.randf_range(4.0, 10.0)
+
+		var tween := piece.create_tween()
+		tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+		var elapsed := 0.0
+		var steps   := 20
+		for step in range(1, steps + 1):
+			var t    : float = LIFETIME * step / steps
+			var dt   : float = LIFETIME / steps
+			elapsed += dt
+			var pos  := origin + vel * t + Vector3(0, -0.5 * GRAVITY * t * t, 0)
+			pos.y    = maxf(pos.y, 0.1)  # stay above floor
+			var rot  := spin_axis * spin_spd * t
+			tween.tween_property(piece, "global_position", pos, dt).set_ease(Tween.EASE_IN_OUT)
+			tween.parallel().tween_property(piece, "rotation", rot, dt)
+
+		# Fade out in the last third
+		tween.parallel().tween_interval(LIFETIME * 0.65)
+		tween.tween_property(mat, "albedo_color:a", 0.0, LIFETIME * 0.35)
+		tween.finished.connect(piece.queue_free)
+
+
 func take_damage(amount: int, _is_headshot: bool = false) -> bool:
 	health -= amount
 	_base_mat.albedo_color = Color(1.0, 1.0, 1.0)
 	_flash_timer = FLASH_DURATION
 	if health <= 0:
+		_spawn_debris()
 		queue_free()
 		return true
 	# Getting hit always triggers ! → seek cover (unless already doing so)
