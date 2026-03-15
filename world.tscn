@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://fps001world"]
 
 [ext_resource type="Script" uid="uid://fps001player" path="res://player.gd" id="1_player"]
-[ext_resource type="Script" uid="uid://fps001target" path="res://target.gd" id="2_target"]
+[ext_resource type="PackedScene" uid="uid://fps001enemy" path="res://enemy.tscn" id="2_enemy"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
 radius = 0.4
@@ -16,14 +16,6 @@ size = Vector3(80.0, 0.2, 80.0)
 [sub_resource type="StandardMaterial3D" id="Material_floor"]
 albedo_color = Color(0.3, 0.5, 0.3, 1)
 
-[sub_resource type="BoxMesh" id="BoxMesh_target"]
-size = Vector3(1.0, 1.5, 1.0)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_target"]
-size = Vector3(1.0, 1.5, 1.0)
-
-[sub_resource type="StandardMaterial3D" id="Material_target"]
-albedo_color = Color(1.0, 0.5, 0.0, 1)
 
 [sub_resource type="BoxMesh" id="BoxMesh_wall"]
 size = Vector3(80.0, 8.0, 0.5)
@@ -227,112 +219,78 @@ surface_material_override/0 = SubResource("Material_cover")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Cover_G"]
 shape = SubResource("BoxShape3D_cover")
 
-[node name="Target1" type="StaticBody3D" parent="."]
-position = Vector3(-22, 0.85, -20)
-script = ExtResource("2_target")
+[node name="Cover_H" type="StaticBody3D" parent="."]
+position = Vector3(-25, 1.0, 10)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Target1"]
-mesh = SubResource("BoxMesh_target")
-surface_material_override/0 = SubResource("Material_target")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Cover_H"]
+mesh = SubResource("BoxMesh_cover")
+surface_material_override/0 = SubResource("Material_cover")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Target1"]
-shape = SubResource("BoxShape3D_target")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Cover_H"]
+shape = SubResource("BoxShape3D_cover")
 
-[node name="Target2" type="StaticBody3D" parent="."]
-position = Vector3(22, 0.85, -20)
-script = ExtResource("2_target")
+[node name="Cover_I" type="StaticBody3D" parent="."]
+position = Vector3(25, 1.0, 10)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Target2"]
-mesh = SubResource("BoxMesh_target")
-surface_material_override/0 = SubResource("Material_target")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Cover_I"]
+mesh = SubResource("BoxMesh_cover")
+surface_material_override/0 = SubResource("Material_cover")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Target2"]
-shape = SubResource("BoxShape3D_target")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Cover_I"]
+shape = SubResource("BoxShape3D_cover")
 
-[node name="Target3" type="StaticBody3D" parent="."]
-position = Vector3(-12, 2.75, -10)
-script = ExtResource("2_target")
+[node name="Cover_J" type="StaticBody3D" parent="."]
+position = Vector3(-8, 1.0, 5)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Target3"]
-mesh = SubResource("BoxMesh_target")
-surface_material_override/0 = SubResource("Material_target")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Cover_J"]
+mesh = SubResource("BoxMesh_cover")
+surface_material_override/0 = SubResource("Material_cover")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Target3"]
-shape = SubResource("BoxShape3D_target")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Cover_J"]
+shape = SubResource("BoxShape3D_cover")
 
-[node name="Target4" type="StaticBody3D" parent="."]
-position = Vector3(12, 2.75, -10)
-script = ExtResource("2_target")
+[node name="Cover_K" type="StaticBody3D" parent="."]
+position = Vector3(8, 1.0, 5)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Target4"]
-mesh = SubResource("BoxMesh_target")
-surface_material_override/0 = SubResource("Material_target")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Cover_K"]
+mesh = SubResource("BoxMesh_cover")
+surface_material_override/0 = SubResource("Material_cover")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Target4"]
-shape = SubResource("BoxShape3D_target")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Cover_K"]
+shape = SubResource("BoxShape3D_cover")
 
-[node name="Target5" type="StaticBody3D" parent="."]
-position = Vector3(0, 0.85, -28)
-script = ExtResource("2_target")
+[node name="Cover_L" type="StaticBody3D" parent="."]
+position = Vector3(-18, 1.0, -5)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Target5"]
-mesh = SubResource("BoxMesh_target")
-surface_material_override/0 = SubResource("Material_target")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Cover_L"]
+mesh = SubResource("BoxMesh_cover")
+surface_material_override/0 = SubResource("Material_cover")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Target5"]
-shape = SubResource("BoxShape3D_target")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Cover_L"]
+shape = SubResource("BoxShape3D_cover")
 
-[node name="Target6" type="StaticBody3D" parent="."]
-position = Vector3(-20, 2.75, -22)
-script = ExtResource("2_target")
+[node name="Cover_M" type="StaticBody3D" parent="."]
+position = Vector3(18, 1.0, -5)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Target6"]
-mesh = SubResource("BoxMesh_target")
-surface_material_override/0 = SubResource("Material_target")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Cover_M"]
+mesh = SubResource("BoxMesh_cover")
+surface_material_override/0 = SubResource("Material_cover")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Target6"]
-shape = SubResource("BoxShape3D_target")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Cover_M"]
+shape = SubResource("BoxShape3D_cover")
 
-[node name="Target7" type="StaticBody3D" parent="."]
-position = Vector3(20, 2.75, -22)
-script = ExtResource("2_target")
+[node name="Enemy1" parent="." instance=ExtResource("2_enemy")]
+position = Vector3(-15, 1.0, -5)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Target7"]
-mesh = SubResource("BoxMesh_target")
-surface_material_override/0 = SubResource("Material_target")
+[node name="Enemy2" parent="." instance=ExtResource("2_enemy")]
+position = Vector3(15, 1.0, -8)
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Target7"]
-shape = SubResource("BoxShape3D_target")
+[node name="Enemy3" parent="." instance=ExtResource("2_enemy")]
+position = Vector3(0, 1.0, -20)
 
-[node name="Target8" type="StaticBody3D" parent="."]
-position = Vector3(-8, 0.85, -35)
-script = ExtResource("2_target")
+[node name="Enemy4" parent="." instance=ExtResource("2_enemy")]
+position = Vector3(-25, 1.0, -25)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Target8"]
-mesh = SubResource("BoxMesh_target")
-surface_material_override/0 = SubResource("Material_target")
+[node name="Enemy5" parent="." instance=ExtResource("2_enemy")]
+position = Vector3(25, 1.0, -25)
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Target8"]
-shape = SubResource("BoxShape3D_target")
-
-[node name="Target9" type="StaticBody3D" parent="."]
-position = Vector3(8, 0.85, -35)
-script = ExtResource("2_target")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Target9"]
-mesh = SubResource("BoxMesh_target")
-surface_material_override/0 = SubResource("Material_target")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Target9"]
-shape = SubResource("BoxShape3D_target")
-
-[node name="Target10" type="StaticBody3D" parent="."]
-position = Vector3(0, 12.75, -15)
-script = ExtResource("2_target")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Target10"]
-mesh = SubResource("BoxMesh_target")
-surface_material_override/0 = SubResource("Material_target")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Target10"]
-shape = SubResource("BoxShape3D_target")

@@ -38,6 +38,7 @@ var hud: Node          # hud.gd (CanvasLayer)
 var weapon: Node       # weapon_system.gd
 
 func _ready() -> void:
+	add_to_group("player")
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	camera.fov = BASE_FOV
 
